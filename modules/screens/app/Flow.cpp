@@ -1,10 +1,11 @@
-#include "app/Flow.h"
+#include "screens/app/Flow.h"
 
 #include "mealkit/core/Version.h"
 #include "mealkit/game/Loadout.h"
 #include "mealkit/game/MatchService.h"
 #include "mealkit/input/Actions.h"
 #include "mealkit/loc/Strings.h"
+#include "mealkit/platform/Paths.h"
 #include "mealkit/platform/Window.h"
 #include "mealkit/settings/Settings.h"
 
@@ -13,13 +14,19 @@
 
 using namespace mealkit;
 
-namespace sandbox {
+namespace screens {
 namespace {
 
 // Screen layers (higher ones receive input first). The engine opens the settings screen above these
 constexpr i32 kMenuLayer = 10;
 constexpr i32 kResultsLayer = 15;
 constexpr i32 kPauseLayer = 20;
+
+// The game's own copy (assets/ui/<name>.ui) when it has one, else the module's
+std::string screenFile(const char* name) {
+    const std::string own = std::string("ui/") + name + ".ui";
+    return findAssetFile(own).empty() ? "modules/screens/" + own : own;
+}
 
 } // namespace
 
@@ -53,27 +60,27 @@ void Flow::show(game::GameContext& ctx, Screen screen) {
     ctx.match.setBrowsing(screen == Screen::Join); // LAN room search only while on the join screen
     switch (screen) {
     case Screen::Title:
-        m_ids.title = ctx.ui.open("ui/title.ui", kMenuLayer);
+        m_ids.title = ctx.ui.open(screenFile("title"), kMenuLayer);
         ctx.ui.bind(m_ids.title, m_title);
         break;
     case Screen::Menu:
-        m_ids.menu = ctx.ui.open("ui/menu.ui", kMenuLayer);
+        m_ids.menu = ctx.ui.open(screenFile("menu"), kMenuLayer);
         ctx.ui.bind(m_ids.menu, m_menu);
         break;
     case Screen::Join:
         m_join.error.clear();
-        m_ids.join = ctx.ui.open("ui/join.ui", kMenuLayer);
+        m_ids.join = ctx.ui.open(screenFile("join"), kMenuLayer);
         ctx.ui.bind(m_ids.join, m_join);
         break;
     case Screen::Lobby:
         m_lobby.ready = ctx.session.localReady();
         m_lobby.chatDraft.clear();
-        m_ids.lobby = ctx.ui.open("ui/lobby.ui", kMenuLayer);
+        m_ids.lobby = ctx.ui.open(screenFile("lobby"), kMenuLayer);
         ctx.ui.bind(m_ids.lobby, m_lobby);
         break;
-    case Screen::Loading: m_ids.loading = ctx.ui.open("ui/loading.ui", kMenuLayer); break;
+    case Screen::Loading: m_ids.loading = ctx.ui.open(screenFile("loading"), kMenuLayer); break;
     case Screen::Message:
-        m_ids.message = ctx.ui.open("ui/message.ui", kMenuLayer);
+        m_ids.message = ctx.ui.open(screenFile("message"), kMenuLayer);
         ctx.ui.bind(m_ids.message, m_message);
         break;
     case Screen::Match:
@@ -89,12 +96,12 @@ void Flow::stop(game::GameContext& ctx) {
     m_paused = m_chatOpen = false;
 }
 
-void Flow::update(game::GameContext& ctx, const FlowGame& game, SaveData& save, HudVm& hud, ui::ScreenId hudScreen, f64 dt) {
+void Flow::update(game::GameContext& ctx, const FlowGame& game, FlowSave save, FlowChat chat, f64 dt) {
     m_time += dt;
     session::Session& session = ctx.session;
     if (!m_nameLoaded) { // first time: the name from the save (or the engine's default name: account/user name)
         m_nameLoaded = true;
-        if (!save.playerName.empty()) session.setLocalName(save.playerName);
+        if (save.playerName && !save.playerName->empty()) session.setLocalName(*save.playerName);
         m_menu.playerName = session.localName();
         const game::BuildInfo& build = ctx.match.config().build;
         m_version = build.gameVersion[0] ? std::string("v") + build.gameVersion + " (" + build.commit + ")" : std::string();
@@ -115,7 +122,7 @@ void Flow::update(game::GameContext& ctx, const FlowGame& game, SaveData& save, 
 
     switch (m_screen) {
     case Screen::Title: {
-        bool next = ctx.actions.pressed("ui.confirm") || ctx.actions.pressed("jump");
+        bool next = ctx.actions.pressed("ui.confirm");
         for (const ui::Action& a : ctx.ui.actions()) next = next || a.name == "title.start";
         if (next) {
             m_menuScreen = Screen::Menu;
@@ -127,7 +134,7 @@ void Flow::update(game::GameContext& ctx, const FlowGame& game, SaveData& save, 
     case Screen::Join: updateJoin(ctx); break;
     case Screen::Lobby: updateLobby(ctx, game, save); break;
     case Screen::Match:
-        if (game.inMatch) updateMatch(ctx, game, hud, hudScreen);
+        if (game.inMatch) updateMatch(ctx, game, chat);
         break;
     case Screen::Message:
         m_message.text = endText(ctx);
@@ -169,14 +176,16 @@ std::string Flow::endText(game::GameContext& ctx) const {
     return ctx.match.error();
 }
 
-void Flow::updateMenu(game::GameContext& ctx, SaveData& save) {
+void Flow::updateMenu(game::GameContext& ctx, FlowSave save) {
     m_menu.onlineAvailable = ctx.match.onlineAvailable();
     // Name: after typing finishes (when text input ends), into the session and the save
     if (!ctx.ui.editingText() && m_menu.playerName != ctx.session.localName()) {
         ctx.session.setLocalName(m_menu.playerName);
         m_menu.playerName = ctx.session.localName(); // cut by the length limit
-        save.playerName = m_menu.playerName;
-        m_saveChanged = true;
+        if (save.playerName) {
+            *save.playerName = m_menu.playerName;
+            m_saveChanged = true;
+        }
     }
     for (const ui::Action& a : ctx.ui.actions()) {
         bool ok = true;
@@ -226,7 +235,7 @@ void Flow::updateJoin(game::GameContext& ctx) {
     }
 }
 
-void Flow::updateLobby(game::GameContext& ctx, const FlowGame& game, SaveData& save) {
+void Flow::updateLobby(game::GameContext& ctx, const FlowGame& game, FlowSave save) {
     session::Session& session = ctx.session;
     const game::MatchPhase phase = ctx.match.phase();
     m_lobby.connecting = phase != game::MatchPhase::Lobby;
@@ -239,15 +248,19 @@ void Flow::updateLobby(game::GameContext& ctx, const FlowGame& game, SaveData& s
                                                      : "lobby.joined");
     if (m_lobby.connecting) m_lobby.title = ctx.strings.get("lobby.connecting");
 
-    // My ready/choice (the choice stays in the save and becomes the next match's loadout: GameSession::lobby)
+    // My ready/choice (the choice stays in the save and becomes the next match's loadout: the game reads it into its loadout)
     session.setLocalReady(m_lobby.ready);
     const u32 choices = static_cast<u32>(game.choices.size());
     m_lobby.hasChoice = choices > 0;
-    if (choices > 0 && m_lobby.choice != save.lobbyChoice) {
-        save.lobbyChoice = std::min<u32>(m_lobby.choice, choices - 1);
-        m_saveChanged = true;
+    if (save.lobbyChoice) m_choice = *save.lobbyChoice;
+    if (choices > 0 && m_lobby.choice != m_choice) {
+        m_choice = std::min<u32>(m_lobby.choice, choices - 1);
+        if (save.lobbyChoice) {
+            *save.lobbyChoice = m_choice;
+            m_saveChanged = true;
+        }
     }
-    m_lobby.choice = save.lobbyChoice;
+    m_lobby.choice = m_choice;
 
     const std::vector<session::LobbyMember>& members = session.lobbyMembers();
     m_lobby.playersCount = std::min<u32>(static_cast<u32>(members.size()), session::kMaxPlayers);
@@ -330,7 +343,7 @@ void Flow::fillResults(game::GameContext& ctx, const FlowGame& game) {
     if (m_results.isHost && left <= 0.0) ctx.match.returnToLobby(); // host: everyone back to the lobby shortly
 }
 
-void Flow::updateMatch(game::GameContext& ctx, const FlowGame& game, HudVm& hud, ui::ScreenId hudScreen) {
+void Flow::updateMatch(game::GameContext& ctx, const FlowGame& game, FlowChat chat) {
     session::Session& session = ctx.session;
 
     // Results: when the simulation says it's over (on the same tick for everyone)
@@ -339,7 +352,7 @@ void Flow::updateMatch(game::GameContext& ctx, const FlowGame& game, HudVm& hud,
         m_ids.pause = 0;
         m_paused = m_chatOpen = false;
         m_resultsTime = m_time;
-        m_ids.results = ctx.ui.open("ui/results.ui", kResultsLayer);
+        m_ids.results = ctx.ui.open(screenFile("results"), kResultsLayer);
         ctx.ui.bind(m_ids.results, m_results);
     }
     if (m_ids.results) fillResults(ctx, game);
@@ -350,16 +363,17 @@ void Flow::updateMatch(game::GameContext& ctx, const FlowGame& game, HudVm& hud,
         m_paused = true;
         m_pause.offline = session.isOffline();
         m_pause.isHost = session.isHost() && !session.isOffline();
-        m_ids.pause = ctx.ui.open("ui/pause.ui", kPauseLayer);
+        m_ids.pause = ctx.ui.open(screenFile("pause"), kPauseLayer);
         ctx.ui.bind(m_ids.pause, m_pause);
     }
 
     // Chat (multiplayer): Enter opens the HUD input field, Enter sends. Esc just closes it
-    if (!session.isOffline() && !m_chatOpen && !m_paused && !m_ids.results && ctx.actions.pressed("chat.open")) {
+    const bool hasChat = chat.lines && chat.count && chat.open && chat.draft;
+    if (hasChat && !session.isOffline() && !m_chatOpen && !m_paused && !m_ids.results && ctx.actions.pressed("chat.open")) {
         m_chatOpen = m_chatFocusPending = true; // starts typing on the frame after the input field appears
-        hud.chatDraft.clear();
+        chat.draft->clear();
     } else if (m_chatOpen && m_chatFocusPending) {
-        if (ctx.ui.focusText(hudScreen, "chatInput")) m_chatFocusPending = false;
+        if (ctx.ui.focusText(chat.screen, "chatInput")) m_chatFocusPending = false;
     } else if (m_chatOpen && !ctx.ui.editingText()) {
         m_chatOpen = false;
     }
@@ -368,14 +382,16 @@ void Flow::updateMatch(game::GameContext& ctx, const FlowGame& game, HudVm& hud,
         m_lastChatSerial = log.back().serial;
         m_chatShownUntil = m_time + game.chatShowSeconds;
     }
-    fillChat(session, hud.chat.data(), hud.chatCount, 5);
-    if (!m_chatOpen && m_time > m_chatShownUntil) hud.chatCount = 0;
-    hud.chatOpen = m_chatOpen;
+    if (hasChat) {
+        fillChat(session, chat.lines, *chat.count, chat.capacity);
+        if (!m_chatOpen && m_time > m_chatShownUntil) *chat.count = 0;
+        *chat.open = m_chatOpen;
+    }
 
     for (const ui::Action& a : ctx.ui.actions()) {
-        if (a.name == "chat.send") {
-            session.sendChat(hud.chatDraft);
-            hud.chatDraft.clear();
+        if (a.name == "chat.send" && hasChat) {
+            session.sendChat(*chat.draft);
+            chat.draft->clear();
             m_chatOpen = false;
         } else if (a.name == "pause.resume" && m_paused) {
             ctx.ui.close(m_ids.pause);
@@ -390,4 +406,4 @@ void Flow::updateMatch(game::GameContext& ctx, const FlowGame& game, HudVm& hud,
     }
 }
 
-} // namespace sandbox
+} // namespace screens

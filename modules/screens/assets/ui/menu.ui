@@ -1,5 +1,5 @@
-# MealKit UI (hand-written): main menu. View model: MenuVm (samples/sandbox/app/Screens.h). Actions: menu.* (app/Flow.cpp),
-# settings.open (engine). Text: assets/strings.
+# MealKit UI (hand-written): main menu. View model: MenuVm (modules/screens/app/Screens.h). Actions: menu.* (modules/screens/app/Flow.cpp),
+# settings.open (engine). Text: modules/screens/strings (a project line with the same key wins).
 @format ui 1
 board menu 1920 1080
   navigation

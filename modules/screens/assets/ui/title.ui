@@ -1,5 +1,5 @@
-# MealKit UI (hand-written): title screen. View model: TitleVm (samples/sandbox/app/Screens.h). Text: assets/strings.
-# Any key (ui.confirm, jump) or a click goes to the main menu (app/Flow.cpp).
+# MealKit UI (hand-written): title screen. View model: TitleVm (modules/screens/app/Screens.h). Text: modules/screens/strings (a project line with the same key wins).
+# Any key (ui.confirm, jump) or a click goes to the main menu (modules/screens/app/Flow.cpp).
 @format ui 1
 board title 1920 1080
   frame start

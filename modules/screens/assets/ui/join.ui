@@ -1,5 +1,5 @@
-# MealKit UI (hand-written): join a room. View model: JoinVm (samples/sandbox/app/Screens.h). The LAN room list fills while
-# this screen is open (MatchService::setBrowsing). Actions: join.room (list item), join.address, join.back. Text: assets/strings.
+# MealKit UI (hand-written): join a room. View model: JoinVm (modules/screens/app/Screens.h). The LAN room list fills while
+# this screen is open (MatchService::setBrowsing). Actions: join.room (list item), join.address, join.back. Text: modules/screens/strings (a project line with the same key wins).
 @format ui 1
 board join 1920 1080
   navigation
