@@ -13,6 +13,10 @@
 #include "mealkit/sim/TickEvents.h"
 #include "mealkit/sim/TickTimer.h"
 #include "cooldown/sim/Cooldown.h" // source module modules/cooldown (docs/MODULES.md)
+#include "effects/sim/Effects.h"   // combat modules (G2): tags, stats, effects, health
+#include "health/sim/Health.h"
+#include "stats/sim/Stats.h"
+#include "tags/sim/Tags.h"
 #include "sim/Objects.h"
 #include "sim/Tables.h"
 #include "sim/Tuning.h"
@@ -57,6 +61,7 @@ static_assert(sizeof(GameInput) == mealkit::session::kInputBytes);
 using mealkit::sim::Id;
 using mealkit::sim::TickTimer;
 struct Controller;
+inline constexpr u32 kStatSpeed = 0; // stats index: movement speed scale (1000 = 1.0)
 inline constexpr u32 kAiPathPoints = 16; // waypoints kept per AI (a longer path is re-searched from its end)
 struct Pawn;
 
@@ -69,6 +74,9 @@ MEALKIT_STRUCT(Pawn) {
     MEALKIT_FIELD(Vec3, position, {}, "위치");
     MEALKIT_FIELD(Vec3, velocity, {}, "속도");
     MEALKIT_FIELD(cooldown::Cooldown, push, {}, "밀치기 쿨타임");
+    MEALKIT_FIELD(health::Health, health, {}, "체력");
+    MEALKIT_FIELD(stats::Stats, stats, {}, "능력치 (0 = 이동 속도 배율, 1000 = 1.0)");
+    MEALKIT_FIELD(effects::EffectList, effects, {}, "걸린 효과 (어지러움)");
     MEALKIT_FIELD(mealkit::sim::Mover, mover, {}, "이동 (모드, 물리 바디, 땅에 닿음)");
 };
 
@@ -190,6 +198,9 @@ struct World {
     matchflow::MatchRules rules; // from tuning (sim/Match.cpp matchRules)
     mealkit::sim::Table<PropKind> propKinds; // box kinds (a table that goes into the content hash)
     mealkit::sim::Table<BodyKind> bodyKinds; // character body kinds (a player slot's body is the row index)
+    tags::Registry tagRegistry;                      // gameplay tags interned at reset (not state: rebuilt the same way on every peer)
+    tags::u16 dazedTag = tags::kNone;                // "State.Dazed"
+    std::array<effects::EffectDef, 1> effectDefs;    // effect 1 = dazed (built from tuning at reset and setTuning)
     mealkit::sim::NavGrid nav;          // AI pathfinding grid baked from the scene's static bodies at reset (same on every peer, not state)
     mealkit::sim::NavSearch navSearch;  // A* scratch memory (not state)
 

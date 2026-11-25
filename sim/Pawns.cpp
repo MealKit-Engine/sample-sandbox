@@ -114,32 +114,40 @@ void drawNav(const World& world) {
     }
 }
 
-// Pushing knocks nearby ragdoll Pawns down (other movement modes aren't pushed, as before). The pusher itself is at distance 0
-void knockRagdolls(World& world, const Vec3& center) {
+// Pushing knocks nearby ragdoll Pawns down (other movement modes aren't pushed, as before). The pusher itself is at distance 0.
+// Every other Pawn in range also takes combat effects: push damage (health module) and daze (effects module: slower, can't push).
+// Attacker = player slot + 1 (0 = AI)
+void knockRagdolls(World& world, const Vec3& center, u32 attacker) {
     const Tuning& t = world.tuning;
     for (auto [id, other] : world.state.pawns) { // Pawn slot order
-        if (other.mover.mode != mealkit::sim::MoveMode::Ragdoll) continue;
         const Vec3 d = other.position - center;
         const f32 dist2 = mealkit::lengthSq(d);
         if (dist2 <= 1e-4f || dist2 >= t.pushRadius * t.pushRadius) continue; // const-ok: the pusher itself
-        const f32 dist = std::sqrt(dist2);
-        const f32 strength = 1.0f - dist / t.pushRadius;
-        const Vec3 dir = d / dist;
-        mealkit::sim::knockRagdoll(world.physics, other.mover, t.knockdown.value,
-                                   Vec3{dir.x, 0.0f, dir.z} * (t.pushSpeed * strength) + Vec3{0.0f, t.pushLift * strength, 0.0f});
+        if (other.mover.mode == mealkit::sim::MoveMode::Ragdoll) {
+            const f32 dist = std::sqrt(dist2);
+            const f32 strength = 1.0f - dist / t.pushRadius;
+            const Vec3 dir = d / dist;
+            mealkit::sim::knockRagdoll(world.physics, other.mover, t.knockdown.value,
+                                       Vec3{dir.x, 0.0f, dir.z} * (t.pushSpeed * strength) + Vec3{0.0f, t.pushLift * strength, 0.0f});
+        }
+        if (t.maxHealth > 0 && t.pushDamage > 0)
+            health::damage(other.health, static_cast<mealkit::i32>(t.pushDamage) * stats::kOne, attacker, 0, world.state.tick);
+        effects::apply(other.effects, world.effectDefs.data(), static_cast<u32>(world.effectDefs.size()), 1, attacker, world.state.tick);
     }
 }
 
 void movePawn(World& world, Pawn& p, const Intent& intent, u8 player) {
     const Tuning& t = world.tuning;
     const BodyKind* body = bodyOf(world, player);
-    const f32 speedScale = body ? body->speedScale : 1.0f; // body kind (loadout)
+    // body kind (loadout) times the speed stat (daze lowers it)
+    const f32 speedScale = (body ? body->speedScale : 1.0f) * (static_cast<f32>(stats::value(p.stats, kStatSpeed)) / static_cast<f32>(stats::kOne));
     if (mealkit::sim::move(world.physics, p.mover, intent.move, t.move, speedScale, t.gravity, world.tickDt))
         world.events.push(makeEvent(EventKind::Jump, player, p.position, 0.0f));
 
-    if (intent.push && cooldown::tryUse(p.push, world.state.tick, t.pushCooldown.value)) {
+    const bool dazed = tags::has(p.effects.granted, world.dazedTag); // "can act" check by tag
+    if (intent.push && !dazed && cooldown::tryUse(p.push, world.state.tick, t.pushCooldown.value)) {
         pushProps(world, p.position);
-        knockRagdolls(world, p.position);
+        knockRagdolls(world, p.position, player == kNoPlayer ? 0u : player + 1u);
         world.events.push(makeEvent(EventKind::Push, player, p.position, t.pushRadius));
     }
 }
@@ -189,6 +197,8 @@ void createControllers(World& world) {
 Id<Pawn> spawnPawn(World& world, const Vec3& position, const BodyKind* body) {
     Pawn p;
     p.position = position;
+    health::init(p.health, static_cast<mealkit::i32>(world.tuning.maxHealth) * stats::kOne);
+    stats::define(p.stats, kStatSpeed, stats::kOne, 0, 4 * stats::kOne);
     const Id<Pawn> id = world.state.pawns.create(p);
     mealkit::sim::MoverShape shape;
     shape.position = position;
@@ -274,7 +284,8 @@ void usePads(World& world) {
 void removeFallenPawns(World& world) {
     WorldState& s = world.state;
     for (auto [pawnId, p] : s.pawns) {
-        if (p.position.y >= world.arenaMin.y) continue;
+        const bool hurtToDeath = world.tuning.maxHealth > 0 && p.health.dead; // health reached 0 (push damage)
+        if (p.position.y >= world.arenaMin.y && !hurtToDeath) continue;
         const u8 player = pawnPlayer(s, p);
         if (Controller* c = s.controllers.get(p.owner)) {
             c->respawn.start(s.tick, world.tuning.respawn);
@@ -316,6 +327,27 @@ void setPresence(World& world, const mealkit::sim::Presence& presence) {
     c.slot = presence.player;
     c.spawnIndex = s.controllers.count(); // a spawn spot that doesn't overlap existing controllers
     slot.controller = s.controllers.create(c);
+}
+
+void buildCombat(World& world) {
+    const char* const names[] = {"State.Dazed"};
+    world.tagRegistry.build(names, 1);
+    world.dazedTag = world.tagRegistry.find("State.Dazed");
+    effects::EffectDef d;
+    d.duration = world.tuning.dazeTime.value;
+    d.stacking = effects::Stacking::Refresh;
+    d.stat = static_cast<u8>(kStatSpeed);
+    d.op = stats::ModOp::PercentAdd;
+    d.amount = -static_cast<mealkit::i32>(world.tuning.dazeSlow) * 10; // percent → 1/1000
+    effects::setGrantTag(d, world.tagRegistry, "State.Dazed");
+    world.effectDefs[0] = d;
+}
+
+void updateEffects(World& world) {
+    effects::PeriodicHits hits; // dazed has no periodic part
+    for (auto [id, p] : world.state.pawns) // Pawn slot order
+        effects::step(p.effects, world.effectDefs.data(), static_cast<u32>(world.effectDefs.size()), world.tagRegistry, world.state.tick,
+                      p.stats, hits);
 }
 
 void sensePawns(World& world) {

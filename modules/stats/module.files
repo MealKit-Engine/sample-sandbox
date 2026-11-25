@@ -1,0 +1,7 @@
+# MealKit module files (sha256  path). tools\module.ps1 update replaces a file only while its hash matches.
+source folder /mnt/drive/MealKit/Personal/module-stats
+5803f1a779a60828135da1769e1c5f85c685ec379df0a6121f76ab173e569aa0  docs/index.md
+f6f4c6eac2951520252a60a045ac4a2b0f6b6c65b345021dd2870212027187eb  LICENSE
+d4693c28482715fd234c9281f5a2fe5b57a0f673c67ee6cbb375141fd09ff581  module.txt
+8d7bcbe388f1435175690d7fa6064504251750b443f7922e56a6a6d1f0a69020  README.md
+16cbb59afda4884a5a1f62d0292d45e4d517b5fe344b94a338fee58b21f29dc7  sim/Stats.h

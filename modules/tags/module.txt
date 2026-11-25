@@ -1,0 +1,10 @@
+# MealKit source module (docs/MODULES.md in the engine). Read by the engine build and tools\module.ps1.
+@format module 1
+name tags
+version 0.1.0
+engine 0.9
+title Gameplay tags
+summary Hierarchical tag ids interned at match start, counted grants and can-act checks
+tags gameplay combat
+icon gameplay
+requires

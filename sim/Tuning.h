@@ -32,6 +32,11 @@ MEALKIT_STRUCT(Tuning) {
     MEALKIT_FIELD(mealkit::f32, pushLift, 7.0f, "밀치기 위로 속도|range=0..30|unit=m/s");
     MEALKIT_FIELD(mealkit::Ticks, knockdown, mealkit::Ticks::seconds(1.2f), "래그돌이 밀려 넘어져 있는 시간 (초)");
     MEALKIT_FIELD(mealkit::f32, pushSpin, 8.0f, "밀치기 회전|range=0..30|unit=rad/s");
+    // Combat (modules health, stats, effects, tags): a push hurts the ragdolls it knocks down and daze slows and blocks pushing
+    MEALKIT_FIELD(mealkit::u32, maxHealth, 100, "최대 체력 (0이면 체력 없음)|group=전투");
+    MEALKIT_FIELD(mealkit::u32, pushDamage, 10, "밀치기 피해 (체력이 0이 되면 떨어진 것처럼 리스폰)");
+    MEALKIT_FIELD(mealkit::Ticks, dazeTime, mealkit::Ticks::seconds(1.5f), "맞은 뒤 어지러운 시간 (초)");
+    MEALKIT_FIELD(mealkit::u32, dazeSlow, 40, "어지러울 때 이동 속도 감소 (%)|range=0..100");
     // Respawn/AI
     MEALKIT_FIELD(mealkit::Ticks, respawn, mealkit::Ticks::seconds(1.5f), "리스폰 대기 (초)|group=리스폰과 AI");
     MEALKIT_FIELD(mealkit::u32, aiPawns, 2, "AI 캐릭터 수");

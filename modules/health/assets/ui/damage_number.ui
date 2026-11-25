@@ -1,0 +1,16 @@
+# MealKit UI (hand-written): floating damage number (health module). World UI like nametag (ui.drawAt). View model fields:
+#   damageText (string, e.g. "-12"), damageCritical (bool). Fade and rise are done by the game's view code.
+@format ui 1
+board damage_number 120 40
+  frame number
+    size 120 40
+    layout row
+    justify center
+    align center
+    text amount
+      content {damageText}
+      fontSize 30
+      color #FFFFFF
+    end
+  end
+end

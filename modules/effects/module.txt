@@ -1,0 +1,10 @@
+# MealKit source module (docs/MODULES.md in the engine). Read by the engine build and tools\module.ps1.
+@format module 1
+name effects
+version 0.1.1
+engine 0.9
+title Effects
+summary Timed or permanent stat modifiers with stacking rules, periodic ticks and granted tags
+tags gameplay combat
+icon combat
+requires tags stats

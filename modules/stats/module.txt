@@ -1,0 +1,10 @@
+# MealKit source module (docs/MODULES.md in the engine). Read by the engine build and tools\module.ps1.
+@format module 1
+name stats
+version 0.1.0
+engine 0.9
+title Stats
+summary Fixed-point attributes with base values and modifiers recomputed in a fixed order
+tags gameplay combat
+icon combat
+requires

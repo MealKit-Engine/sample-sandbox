@@ -1,0 +1,10 @@
+# MealKit source module (docs/MODULES.md in the engine). Read by the engine build and tools\module.ps1.
+@format module 1
+name health
+version 0.2.0
+engine 0.9
+title Health
+summary Hit points, damage, healing, invulnerability, death and respawn wait, hit queries, health bar .ui
+tags gameplay combat health
+icon health
+requires

@@ -1,0 +1,11 @@
+# MealKit module files (sha256  path). tools\module.ps1 update replaces a file only while its hash matches.
+source folder /mnt/drive/MealKit/Personal/module-health
+cee5540f5185701fc918f02d5dfb502e49f0f124bc71587debf025287398a088  assets/ui/damage_number.ui
+0a2c13278639c6f707aaee2794ef8cb3949976720777ce8d8899a71f326cc5a7  assets/ui/health_bar.ui
+39d50749a3b6b0876e8a22d404a43500e1a1a9b273f281adb81d37d7ae004316  docs/index.md
+f6f4c6eac2951520252a60a045ac4a2b0f6b6c65b345021dd2870212027187eb  LICENSE
+c844f49ee2cc3a70233ed9d0f09eba67dc83ec2be629e755e7873b91759ac3c4  module.txt
+d03dc310ba009d35e20a6b64afa9bc996ad7d9f2f9e33792362e99e731ef9011  README.md
+4d13ff753775b8db05a511bba6123c4505173bbf32c73bdd847dc06e379430bb  sim/Health.h
+8901cd8febbd1f2cc6a235f48676f2ca3d94e97fc9ed5c1096bd4decceda4527  sim/Hit.h
+1c45a1ca5455590e322f2d0d7b27acdc7bbe548c1f3e4035cc1822dee4d6e58f  view/HealthView.h

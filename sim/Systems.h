@@ -19,6 +19,8 @@ void respawnPawns(World& world);      // a new Pawn for controllers without one 
 void controlPawns(World& world);      // input/AI → movement mode (velocity, jump), push
 void usePads(World& world);           // launches Pawns on jump pads upward
 void removeFallenPawns(World& world); // removes fallen Pawns and waits for respawn
+void updateEffects(World& world);     // pawn effects: expire, periodic ticks, stats and tags rebuild
+void buildCombat(World& world);       // tag registry and effect definitions from tuning (reset, setTuning)
 void sensePawns(World& world);        // physics results → position, velocity, grounded
 void setPresence(World& world, const mealkit::sim::Presence& presence); // connect/disconnect mid-match (engine command)
 

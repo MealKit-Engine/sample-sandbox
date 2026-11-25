@@ -111,6 +111,7 @@ void World::reset(u64 seed, u32 playerCount, u32 propOverride, const Tuning& tun
     tickDt = 1.0f / static_cast<f32>(tickRate);
     tuning = tuningValue;
     rules = matchRules(tuning);
+    buildCombat(*this);
     propKinds = propKindTable;
     bodyKinds = bodyKindTable;
     physics.setContactEvents(tuning.impactSpeed, tuning.impactsPerTick); // collision sounds (view notifications)
@@ -151,6 +152,7 @@ void World::reset(u64 seed, u32 playerCount, u32 propOverride, const Tuning& tun
 void World::setTuning(const Tuning& value) {
     tuning = value;
     rules = matchRules(tuning);
+    buildCombat(*this);
     physics.setGravity(tuning.gravity);
 }
 
@@ -162,6 +164,7 @@ void World::step(const mealkit::session::TickInputs& tickInputs) {
     applyCommands(*this, tickInputs); // confirmed commands (debug cheats etc.): player index → send order
     updateMatch(*this);               // waiting → countdown → playing → round end → results
     respawnPawns(*this);
+    updateEffects(*this);
     controlPawns(*this);
     usePads(*this);
     physics.step(tickDt, 2); // splits a tick into 2 physics substeps for stability

@@ -1,0 +1,18 @@
+# MealKit UI (hand-written): health bar component (health module). Use it with
+#   use <name> modules/health/ui/health_bar.ui
+#   set fill widthRatio <your view model field>      (0..1, health::ratio)
+@format ui 1
+board health_bar 260 16
+  frame bar
+    size fill 16
+    fill #00000066
+    radius 8
+    clip
+    frame fill
+      size fill fill
+      widthRatio healthRatio
+      fill linear 0 0 1 0 #E23A3A #FF7A5A
+      radius 8
+    end
+  end
+end
