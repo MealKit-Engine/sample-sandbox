@@ -86,8 +86,16 @@ Intent thinkAI(World& world, Controller& c, const Pawn& pawn, u32 selfId, const 
             c.retarget.start(tick, t.aiThink + rng.below(t.aiThink + 1));
             const f32 angle = rng.range(-mealkit::kDetPi, mealkit::kDetPi);
             const f32 distance = rng.range(t.aiTargetMin, t.aiTargetMax);
-            const Vec3 target = pawn.position + Vec3{mealkit::detSin(angle), 0.0f, mealkit::detCos(angle)} * distance;
-            ai::setTarget(c.route, {std::clamp(target.x, world.arenaMin.x, world.arenaMax.x), feet.y, std::clamp(target.z, world.arenaMin.z, world.arenaMax.z)});
+            if (!world.paths.empty()) { // a placed `path` object: patrol it (each AI its own, by spawn number)
+                ai::PatrolParams patrol;
+                patrol.reach = t.aiPatrolReach;
+                patrol.stepMm = t.aiPatrolStep;
+                const Vec3 goal = ai::patrolTarget(c.patrol, world.paths[c.spawnIndex % world.paths.size()], feet, patrol);
+                ai::setTarget(c.route, {goal.x, feet.y, goal.z});
+            } else {
+                const Vec3 target = pawn.position + Vec3{mealkit::detSin(angle), 0.0f, mealkit::detCos(angle)} * distance;
+                ai::setTarget(c.route, {std::clamp(target.x, world.arenaMin.x, world.arenaMax.x), feet.y, std::clamp(target.z, world.arenaMin.z, world.arenaMax.z)});
+            }
             i.move.jump = rng.below(t.aiJumpOneIn) == 0;
             i.push = rng.below(t.aiPushOneIn) == 0;
         }

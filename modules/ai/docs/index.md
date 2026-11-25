@@ -2,9 +2,9 @@
 
 Decision making for AI characters: utility scoring, an `enum` state machine, sight and hearing, and walking along the engine's nav grid. No graph editor and no allocation; every number is a plain value in state, so hashes, snapshots and replays include it. Scores are fixed-point integers (1000 = 1.0), like `stats` and `health`.
 
-- Version 0.1.0, engine 0.9, no required modules
-- State: `ai::Brain`, `ai::Awareness`, `ai::Route` (one each per AI Controller), `ai::NoiseList` (one per match), tuning `ai::Tuning`
-- Simulation: `sim/Utility.h` (curves, scores, brain), `sim/Perception.h` (sight, hearing, memory), `sim/Route.h` (path following)
+- Version 0.2.0, engine 0.9, no required modules
+- State: `ai::Brain`, `ai::Awareness`, `ai::Route` and `ai::Patrol` (one each per AI Controller), `ai::NoiseList` (one per match), tuning `ai::Tuning`
+- Simulation: `sim/Utility.h` (curves, scores, brain), `sim/Perception.h` (sight, hearing, memory), `sim/Route.h` (path following), `sim/Patrol.h` (walking a scene `path` object)
 - Debug drawing: `sim/Debug.h`
 
 ## Adding
@@ -52,6 +52,18 @@ case AiState::Chase: ai::setTarget(c.route, c.aware.lastKnown); break;   // each
 const Vec3 wish = ai::follow(c.route, world.nav, world.navSearch, feet, pathBudget, params);
 ```
 
+Patrol: a scene object of kind `path` (placed and edited in MkRender) is read once when the match starts (`scene::readPath(entity)` on an object of the flattened scene). Each controller keeps an `ai::Patrol` (a distance in millimeters, the "carrot"); at the moments it picks a new target it asks for the point to walk to and hands it to the route:
+
+```cpp
+// when starting the match
+world.paths.push_back(scene::readPath(e));          // not state: the scene is the same on every peer
+// in the AI's act step, instead of a random wander target
+const Vec3 goal = ai::patrolTarget(c.patrol, world.paths[pathIndex], feet, params);   // params: reach, stepMm
+ai::setTarget(c.route, goal);
+```
+
+A closed path loops, an open one is walked there and back; the first call starts at the point of the path closest to the AI. `Patrol.h` doesn't include the scene module: `patrolTarget` is a template over any path type with `valid()`, `length`, `closed` and `pathPoint` / `pathClosest` functions, so the module's tests use a fake one.
+
 Noises: any system that makes one calls `ai::emit(state.noises, position, radius, sourceId, tick)` (a push, a landing, a shot).
 
 ## Rules
@@ -72,4 +84,5 @@ Noises: any system that makes one calls `ai::emit(state.noises, position, radius
 | `inCone`, `lineClear`, `see` | Sight: cone test, line-of-sight ray, nearest visible candidate (not itself) with memory |
 | `emit`, `hear`, `notice` | Hearing: make a noise, the nearest audible one, update the memory |
 | `setTarget`, `follow`, `hasPath` | Route to a point along the nav grid |
+| `patrolStart`, `patrolTarget` | The point to walk to along a scene path (loops or ping-pongs) |
 | `drawEye`, `drawAwareness`, `drawRoute` (`Debug.h`) | Debug drawing |

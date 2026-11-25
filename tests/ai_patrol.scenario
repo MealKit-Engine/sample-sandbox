@@ -1,0 +1,6 @@
+# AI patrol (module ai 0.2): a wandering AI follows the scene's `path` object: the carrot starts at the closest point of the loop and moves on by aiPatrolStep once the AI is near it
+seed 7
+ticks 400
+tick 90 controllers[2].patrol.started == true
+tick 90 controllers[2].patrol.distance == 16416
+tick 150 controllers[2].patrol.distance == 19416

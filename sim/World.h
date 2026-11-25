@@ -13,6 +13,7 @@
 #include "mealkit/sim/TickEvents.h"
 #include "mealkit/sim/TickTimer.h"
 #include "ai/sim/Perception.h" // source module modules/ai (G3): brain, awareness, route, noises
+#include "ai/sim/Patrol.h"
 #include "ai/sim/Route.h"
 #include "ai/sim/Utility.h"
 #include "cooldown/sim/Cooldown.h" // source module modules/cooldown (docs/MODULES.md)
@@ -92,6 +93,7 @@ MEALKIT_STRUCT(Controller) {
     MEALKIT_FIELD(ai::Brain, brain, {}, "AI 두뇌 (상태: 0 배회, 1 추격, 2 도망)");
     MEALKIT_FIELD(ai::Awareness, aware, {}, "AI가 아는 것 (목표, 마지막 위치)");
     MEALKIT_FIELD(ai::Route, route, {}, "AI 경로");
+    MEALKIT_FIELD(ai::Patrol, patrol, {}, "AI 순찰 (경로를 따라간 거리)");
     MEALKIT_FIELD(TickTimer, retarget, {}, "AI 다음 목표 정하기");
     MEALKIT_FIELD(Vec3, facing, {}, "AI가 바라보는 방향 (시야 방향)");
 };
@@ -204,6 +206,7 @@ struct World {
     tags::Registry tagRegistry;                      // gameplay tags interned at reset (not state: rebuilt the same way on every peer)
     tags::u16 dazedTag = tags::kNone;                // "State.Dazed"
     std::array<effects::EffectDef, 1> effectDefs;    // effect 1 = dazed (built from tuning at reset and setTuning)
+    std::vector<mealkit::scene::ScenePath> paths; // scene `path` objects an AI patrols while wandering (same on every peer, not state)
     mealkit::sim::NavGrid nav;          // AI pathfinding grid baked from the scene's static bodies at reset (same on every peer, not state)
     mealkit::sim::NavSearch navSearch;  // A* scratch memory (not state)
 

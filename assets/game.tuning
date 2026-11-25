@@ -14,6 +14,8 @@ respawn 1.5
 aiPawns 2
 aiThink 1.33333
 aiSpeedScale 0.699999988
+aiPatrolReach 0.800000012
+aiPatrolStep 3000
 aiTargetMin 4
 aiTargetMax 14
 aiJumpOneIn 4

@@ -1,4 +1,4 @@
-// Vendored copy of module-ai 0.1.0; change it in that repo (tools\module.ps1 update), not here.
+// Vendored copy of module-ai 0.2.0; change it in that repo (tools\module.ps1 update), not here.
 #pragma once
 
 #include "mealkit/core/Math.h"

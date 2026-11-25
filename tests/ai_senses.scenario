@@ -5,4 +5,4 @@ tick 100 controllers[2].aware.target == 0
 tick 400 controllers[2].brain.state == 1
 tick 500 controllers[2].aware.target == 1
 tick 899 controllers[2].brain.state == 2
-tick 899 controllers[1].brain.state == 0
+tick 899 controllers[1].brain.state == 1

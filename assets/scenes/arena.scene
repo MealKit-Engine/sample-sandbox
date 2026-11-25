@@ -398,3 +398,16 @@ field color #FFD6A0
 field intensity 3
 field range 6
 end
+
+entity
+id 32
+name 순찰 경로
+kind path
+position 0 0 0
+rotation 0 0 0 1
+scale 1 1 1
+color FFC8C8C8
+flags 0
+field closed true
+field points -10 0 -8; 10 0 -8; 10 0 10; -10 0 10
+end

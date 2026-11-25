@@ -50,6 +50,8 @@ void loadScene(World& world, const scene::Scene& scene, mealkit::asset::ModelCac
             d.friction = world.tuning.solidFriction;
             const f32 cells = static_cast<f32>(map.size - 1);
             world.physics.createHeightField(heights.data(), map.size, e.scale * -0.5f, e.scale.x / cells, e.scale.z / cells, d);
+        } else if (e.is(scene::kTypePath)) {
+            world.paths.push_back(scene::readPath(e));
         } else if (e.is(scene::kTypeSpawn)) {
             world.spawns.push_back(e.position);
         } else if (e.is<JumpPad>()) {

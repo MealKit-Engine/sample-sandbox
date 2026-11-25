@@ -43,6 +43,8 @@ MEALKIT_STRUCT(Tuning) {
     MEALKIT_FIELD(mealkit::u32, aiPawns, 2, "AI 캐릭터 수");
     MEALKIT_FIELD(mealkit::Ticks, aiThink, mealkit::Ticks::seconds(1.3333f), "AI 판단 간격 (초)");
     MEALKIT_FIELD(mealkit::f32, aiSpeedScale, 0.7f, "AI 이동 속도 비율|range=0..2");
+    MEALKIT_FIELD(mealkit::f32, aiPatrolReach, 0.8f, "AI 순찰 점에 닿았다고 보는 거리|unit=m");
+    MEALKIT_FIELD(mealkit::u32, aiPatrolStep, 3000, "AI 순찰 점이 한 번에 나아가는 길이|unit=mm");
     MEALKIT_FIELD(mealkit::f32, aiTargetMin, 4.0f, "AI 목표 지점 최소 거리|unit=m");
     MEALKIT_FIELD(mealkit::f32, aiTargetMax, 14.0f, "AI 목표 지점 최대 거리|unit=m");
     MEALKIT_FIELD(mealkit::u32, aiJumpOneIn, 4, "AI가 목표를 바꿀 때 점프할 확률 (1/N)");
