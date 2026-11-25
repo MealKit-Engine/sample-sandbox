@@ -25,6 +25,11 @@ struct Headless {
     static void botCommands(u32 tick, u8 player, mealkit::session::Session& session);
     // Bot match start data: a different body per player (puts the loadout path into determinism tests)
     static void botLoadout(u8 player, mealkit::session::Session& session);
+    // Learning-agent environment (--gym, mealkit/game/Gym.h): action = {moveX, moveZ, buttons} as input bytes (moveX/Z -127..127)
+    // observation = this player's pawn {x, y, z, vx, vy, vz, health fraction} + {score, falls, matchPhase}; reward = score - falls; done at Results
+    static void gymObserve(const World& world, u8 player, std::vector<f32>& out);
+    static f32 gymReward(const World& world, u8 player);
+    static bool gymDone(const World& world);
     // Default port/player count from project settings
     static void defaults(mealkit::game::MatchOptions& options, const ProjectSettings& project);
 };

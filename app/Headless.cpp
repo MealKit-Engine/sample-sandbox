@@ -62,6 +62,26 @@ void Headless::botLoadout(u8 player, session::Session& session) {
     game::setLoadout(session, l);
 }
 
+// Gym hooks run outside the simulation and only read the state
+void Headless::gymObserve(const World& world, u8 player, std::vector<f32>& out) {
+    const WorldState& s = world.state;
+    const PlayerSlot& slot = s.slots[player];
+    const Controller* c = s.controllers.get(slot.controller);
+    const Pawn* pawn = c ? s.pawns.get(c->pawn) : nullptr; // none while waiting to respawn: zeros
+    if (pawn) out = {pawn->position.x, pawn->position.y, pawn->position.z, pawn->velocity.x, pawn->velocity.y, pawn->velocity.z};
+    else out.assign(6, 0.0f);
+    out.push_back(static_cast<f32>(slot.score));
+    out.push_back(static_cast<f32>(slot.falls));
+    out.push_back(static_cast<f32>(s.flow.phase));
+}
+
+f32 Headless::gymReward(const World& world, u8 player) {
+    const PlayerSlot& slot = world.state.slots[player];
+    return static_cast<f32>(slot.score) - static_cast<f32>(slot.falls); // cumulative: the trainer differences it
+}
+
+bool Headless::gymDone(const World& world) { return world.state.flow.phase == MatchPhase::Results; }
+
 void Headless::defaults(game::MatchOptions& options, const ProjectSettings& project) {
     if (options.port == 0) options.port = project.defaultPort;
     if (options.maxPlayers == 0) options.maxPlayers = project.defaultMaxPlayers;
