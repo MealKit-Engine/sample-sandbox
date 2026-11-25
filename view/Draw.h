@@ -49,9 +49,9 @@ void applyLights(const mealkit::scene::Scene& scene, const WorldView& view, meal
 // Scene reflection probes → view (frame points at probes: they must live for the frame)
 void applyProbes(const mealkit::scene::Scene& scene, mealkit::asset::ModelCache& models,
                  std::vector<mealkit::render::ReflectionProbe>& probes, mealkit::render::FrameParams& frame);
-// Static scene objects (spawn points and areas aren't drawn)
+// Static scene objects (spawn points and areas aren't drawn). With the world, solids a joint made dynamic are drawn at their physics pose
 void drawScene(const mealkit::scene::Scene& scene, mealkit::asset::ModelCache& models, const Vec3& eye, mealkit::f64 viewTime,
-               mealkit::render::DrawList& out);
+               mealkit::render::DrawList& out, const World* world = nullptr);
 // Draws boxes and Pawns interpolated by alpha between the previous and current tick. localOffset: only my character is drawn moved further (prediction)
 void drawWorld(const WorldState& previous, const WorldState& current, f32 alpha, u8 localPlayer, mealkit::f64 now,
                mealkit::f64 viewTime, const ViewTuning& look, mealkit::asset::ModelCache& models, WorldView& view, mealkit::render::DrawList& out,

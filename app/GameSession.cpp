@@ -281,7 +281,7 @@ void GameSession::buildFrame(game::GameContext& ctx, f64 now, render::FrameParam
     applyProbes(m_scene, ctx.models, m_probes, frame);
     applyLights(m_scene, m_view, m_viewTime, m_lights, frame);
 
-    drawScene(m_scene, ctx.models, frame.cameraPos, m_viewTime, out);
+    drawScene(m_scene, ctx.models, frame.cameraPos, m_viewTime, out, &sim().world());
     m_view.animEvents.clear();
     drawWorld(previous, current, alpha, localPlayer, now, m_viewTime, look, ctx.models, m_view, out, m_prediction.offset);
     for (const WorldView::AnimEvent& e : m_view.animEvents) ctx.feedback.play(e.row, e.position); // footsteps etc. (feedback table rows)

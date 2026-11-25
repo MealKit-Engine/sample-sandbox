@@ -41,10 +41,19 @@ void applyProbes(const scene::Scene& scene, asset::ModelCache& models, std::vect
     frame.probeCount = static_cast<u32>(probes.size());
 }
 
-void drawScene(const scene::Scene& scene, asset::ModelCache& models, const Vec3& eye, f64 viewTime, render::DrawList& out) {
+void drawScene(const scene::Scene& scene, asset::ModelCache& models, const Vec3& eye, f64 viewTime, render::DrawList& out,
+               const World* world) {
     const render::MeshId box = models.boxMesh();
     for (const scene::Entity& e : scene.entities) {
         if (!scene::visibleInGame(e, &reflect::moduleObjectTypes())) continue; // spawn points/areas are invisible in the game
+        Vec3 position = e.position;
+        Quat rotation = e.rotation;
+        if (world) // a solid a joint made dynamic is drawn where the physics has it (the current tick, not interpolated)
+            for (const World::LinkedSolid& l : world->linkedSolids)
+                if (l.entity == e.id) {
+                    position = world->physics.position(l.body);
+                    rotation = world->physics.rotation(l.body);
+                }
         if (e.is(scene::kTypeScatter)) { // view-only instances painted in the editor
             render::addScatter(out, models, e, eye);
             continue;
@@ -55,9 +64,9 @@ void drawScene(const scene::Scene& scene, asset::ModelCache& models, const Vec3&
             continue;
         }
         const asset::Model* model = e.model.empty() ? nullptr : models.get(e.model);
-        const render::MeshId mesh = model ? models.pickLod(*model, eye, e.position, e.scale) : box;
-        if (model) render::addModel(out, *model, mesh, {e.position, e.color, e.rotation, e.scale, e.flags}, scene::animField(e), viewTime);
-        else out.add(mesh, {e.position, e.color, e.rotation, e.scale, e.flags});
+        const render::MeshId mesh = model ? models.pickLod(*model, eye, position, e.scale) : box;
+        if (model) render::addModel(out, *model, mesh, {position, e.color, rotation, e.scale, e.flags}, scene::animField(e), viewTime);
+        else out.add(mesh, {position, e.color, rotation, e.scale, e.flags});
     }
 }
 

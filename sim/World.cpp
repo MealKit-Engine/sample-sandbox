@@ -15,6 +15,42 @@ using mealkit::physics::BodyDesc;
 using mealkit::physics::Motion;
 namespace scene = mealkit::scene;
 
+// Links for the scene's `joint` objects, in scene order. A name that isn't a solid (or empty) is the world: a small static body at the anchor
+void createJoints(World& world, const std::vector<scene::SceneJoint>& joints,
+                  const std::vector<std::pair<std::string, mealkit::physics::BodyId>>& named) {
+    namespace physics = mealkit::physics;
+    auto find = [&](const std::string& name) {
+        for (const auto& [n, body] : named)
+            if (!name.empty() && n == name) return body;
+        return physics::kInvalidBody;
+    };
+    for (const scene::SceneJoint& j : joints) {
+        const scene::JointFields& f = j.fields;
+        physics::BodyId a = find(f.bodyA), b = find(f.bodyB);
+        if (a == physics::kInvalidBody && b == physics::kInvalidBody) {
+            MEALKIT_WARN("joint '%s' / '%s': neither body is a solid of the scene - skipped", f.bodyA.c_str(), f.bodyB.c_str());
+            continue;
+        }
+        BodyDesc anchor;
+        anchor.motion = Motion::Static;
+        anchor.position = j.pivot;
+        if (a == physics::kInvalidBody) a = world.physics.createBox({0.01f, 0.01f, 0.01f}, anchor); // const-ok: tiny world anchor
+        if (b == physics::kInvalidBody) b = world.physics.createBox({0.01f, 0.01f, 0.01f}, anchor); // const-ok: tiny world anchor
+        physics::LinkDesc d;
+        d.kind = static_cast<physics::LinkKind>(static_cast<u8>(f.kind)); // same order as scene::JointKind
+        d.pivot = j.pivot;
+        d.pivot2 = world.physics.position(b);
+        d.axis = j.axis;
+        d.limitMin = j.limitMin;
+        d.limitMax = j.limitMax;
+        d.length = f.length;
+        d.frequency = f.frequency;
+        d.damping = f.damping;
+        d.breakForce = f.breakForce;
+        world.physics.createLink(a, b, d);
+    }
+}
+
 // The scene's collision boxes (static), spawn points, jump pads, match area, box spawn areas
 void loadScene(World& world, const scene::Scene& scene, mealkit::asset::ModelCache& models) {
     u32 padCount = 0;
@@ -22,23 +58,39 @@ void loadScene(World& world, const scene::Scene& scene, mealkit::asset::ModelCac
     world.state.pads.init(padCount);
     bool arena = false;
 
+    // `joint` objects name their solids: a solid a joint marks dynamic is created as a moving body (docs/DECISIONS.md 2026-11-25 "E7 joints")
+    std::vector<scene::SceneJoint> joints;
+    for (const scene::Entity& e : scene.entities)
+        if (e.is(scene::kTypeJoint)) joints.push_back(scene::readJoint(e));
+    auto movesByJoint = [&](const std::string& name) {
+        if (name.empty()) return false;
+        for (const scene::SceneJoint& j : joints)
+            if ((j.fields.bodyA == name && j.fields.dynamicA) || (j.fields.bodyB == name && j.fields.dynamicB)) return true;
+        return false;
+    };
+    std::vector<std::pair<std::string, mealkit::physics::BodyId>> named; // solids a joint names, for the links below
+
     for (const scene::Entity& e : scene.entities) {
         if (e.is(scene::kTypeSolid)) {
+            const bool moves = movesByJoint(e.name);
             BodyDesc d;
-            d.motion = Motion::Static;
+            d.motion = moves ? Motion::Dynamic : Motion::Static;
             d.position = e.position;
             d.rotation = e.rotation;
             d.friction = world.tuning.solidFriction;
             const mealkit::asset::Model* model = e.model.empty() ? nullptr : models.get(e.model);
+            mealkit::physics::BodyId body = mealkit::physics::kInvalidBody;
             if (model) {
                 std::vector<Vec3> points;
                 points.reserve(model->hullPoints.size());
                 for (const Vec3& p : model->hullPoints)
                     points.push_back({p.x * e.scale.x, p.y * e.scale.y, p.z * e.scale.z});
-                world.physics.createConvexHull(points.data(), static_cast<u32>(points.size()), d);
+                body = world.physics.createConvexHull(points.data(), static_cast<u32>(points.size()), d);
             } else {
-                world.physics.createBox(e.scale * 0.5f, d);
+                body = world.physics.createBox(e.scale * 0.5f, d);
             }
+            if (!e.name.empty()) named.push_back({e.name, body});
+            if (moves) world.linkedSolids.push_back({e.id, body});
         } else if (e.is(scene::kTypeTerrain)) { // heightmap (rotation ignored: terrain is axis-aligned)
             const mealkit::asset::Terrain* terrain = models.terrain(scene::terrainFile(e));
             if (!terrain) continue;
@@ -86,6 +138,7 @@ void loadScene(World& world, const scene::Scene& scene, mealkit::asset::ModelCac
         world.arenaMax = {40.0f, 30.0f, 40.0f};    // const-ok: safe value for scenes without an area
     }
     world.state.pads.endTick();
+    createJoints(world, joints, named);
     world.physics.optimize();
 }
 
@@ -119,6 +172,7 @@ void World::reset(u64 seed, u32 playerCount, u32 propOverride, const Tuning& tun
     physics.setContactEvents(tuning.impactSpeed, tuning.impactsPerTick); // collision sounds (view notifications)
     physics.setGravity(tuning.gravity);
     spawns.clear();
+    linkedSolids.clear();
     propSpawns.clear();
     state = WorldState{};
     events.clear();

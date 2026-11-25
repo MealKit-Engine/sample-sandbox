@@ -206,6 +206,12 @@ struct World {
     tags::Registry tagRegistry;                      // gameplay tags interned at reset (not state: rebuilt the same way on every peer)
     tags::u16 dazedTag = tags::kNone;                // "State.Dazed"
     std::array<effects::EffectDef, 1> effectDefs;    // effect 1 = dazed (built from tuning at reset and setTuning)
+    // Scene solids a `joint` object makes dynamic: the view draws them at their physics pose instead of the placed one (same on every peer, not state)
+    struct LinkedSolid {
+        u32 entity = 0; // scene object id
+        mealkit::physics::BodyId body = mealkit::physics::kInvalidBody;
+    };
+    std::vector<LinkedSolid> linkedSolids;
     std::vector<mealkit::scene::ScenePath> paths; // scene `path` objects an AI patrols while wandering (same on every peer, not state)
     mealkit::sim::NavGrid nav;          // AI pathfinding grid baked from the scene's static bodies at reset (same on every peer, not state)
     mealkit::sim::NavSearch navSearch;  // A* scratch memory (not state)
