@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ai/sim/Utility.h" // source module modules/ai
 #include "mealkit/core/Math.h"
 #include "mealkit/core/Reflect.h"
 #include "mealkit/sim/Movement.h"
@@ -47,6 +48,13 @@ MEALKIT_STRUCT(Tuning) {
     MEALKIT_FIELD(mealkit::u32, aiJumpOneIn, 4, "AI가 목표를 바꿀 때 점프할 확률 (1/N)");
     MEALKIT_FIELD(mealkit::u32, aiPushOneIn, 3, "AI가 목표를 바꿀 때 밀칠 확률 (1/N)");
     MEALKIT_FIELD(mealkit::sim::NavBakeSettings, nav, {}, "AI 길찾기 그리드");
+    MEALKIT_FIELD(ai::Tuning, ai, {}, "AI 모듈 (판단 간격, 유지 시간, 기억 시간)");
+    MEALKIT_FIELD(mealkit::f32, aiSightRange, 18.0f, "AI 시야 거리|unit=m");
+    MEALKIT_FIELD(mealkit::f32, aiSightAngle, 140.0f, "AI 시야각 (도, 정면 기준 양쪽 합)|range=10..360|unit=°");
+    MEALKIT_FIELD(mealkit::f32, aiChaseRange, 20.0f, "이 거리 안이면 추격 점수가 오름|unit=m");
+    MEALKIT_FIELD(mealkit::u32, aiWanderScore, 300, "배회 점수 (1000 = 1.0, 추격/도망 점수와 겨룸)|range=0..1000");
+    MEALKIT_FIELD(mealkit::f32, aiFleeDistance, 10.0f, "도망칠 때 잡는 거리|unit=m");
+    MEALKIT_FIELD(mealkit::f32, pushNoise, 12.0f, "밀치기 소리가 들리는 거리|unit=m");
     MEALKIT_FIELD(mealkit::u32, aiPathsPerTick, 2, "틱당 AI 길찾기 수 (컨트롤러 순서)");
     MEALKIT_FIELD(mealkit::u32, aiPathExpand, 4096, "길찾기 한 번에 살펴보는 최대 칸 수");
     MEALKIT_FIELD(bool, navDebug, false, "길찾기 그리드와 AI 경로 그리기 (디버그)");

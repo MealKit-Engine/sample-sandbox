@@ -1,0 +1,10 @@
+# MealKit source module (docs/MODULES.md in the engine). Read by the engine build and tools\module.ps1.
+@format module 1
+name ai
+version 0.1.0
+engine 0.9
+title Game AI
+summary Utility scoring, enum state machine brain, sight and hearing perception, nav grid route following, debug drawing
+tags gameplay ai
+icon ai
+requires

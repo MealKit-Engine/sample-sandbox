@@ -1,0 +1,10 @@
+# MealKit module files (sha256  path). tools\module.ps1 update replaces a file only while its hash matches.
+source folder /mnt/drive/MealKit/Personal/module-ai
+90b79d07a81496fce7357beb2e7f93d236ed50ea1d38e37a9b04115df8663f1d  docs/index.md
+f6f4c6eac2951520252a60a045ac4a2b0f6b6c65b345021dd2870212027187eb  LICENSE
+c75ce9d67299031c51097776ef7b1752a611e9feb8af052f318cf17e7391108c  module.txt
+34127f26a0e9a92a2e476c7564a05cb83364c6e93ea17eb8d1c7fc7d38fc70ae  README.md
+8a5e53a6b3ba35db80704e79adcb0d587adddc5039eec45a805acb26603b3b0a  sim/Debug.h
+da1e03423d1df3bf011106a51a6a7b6f318f4a47b5738c3ffe49ee6f84f96e7e  sim/Perception.h
+ea54f1c1fc6f1a70e40005ced60f9841e990f22e245fe1a4899af26a1a1057c3  sim/Route.h
+24d0eeee4f9b07ca97d79e3b3a0fe5b856d9fc30748cac62bce3205bc9f62a86  sim/Utility.h

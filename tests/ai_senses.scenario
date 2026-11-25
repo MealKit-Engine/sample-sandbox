@@ -1,0 +1,8 @@
+# AI controllers (module ai): the second AI sees player 0 (target = pawn slot 0 + 1), chases it, and flees once it is hurt
+seed 7
+ticks 900
+tick 100 controllers[2].aware.target == 0
+tick 400 controllers[2].brain.state == 1
+tick 500 controllers[2].aware.target == 1
+tick 899 controllers[2].brain.state == 2
+tick 899 controllers[1].brain.state == 0

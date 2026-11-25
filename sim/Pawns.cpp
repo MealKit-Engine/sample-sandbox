@@ -4,6 +4,7 @@
 #include "sim/Loadout.h"
 
 #include "mealkit/core/DetMath.h"
+#include "ai/sim/Debug.h"
 #include "mealkit/debug/DebugDraw.h"
 
 #include <algorithm>
@@ -33,61 +34,90 @@ Intent intentFromInput(const GameInput& in) {
     return i;
 }
 
-// AI: occasionally picks a new nearby target point and walks there along a nav grid path (around obstacles, not off edges).
-// Sometimes jumps or pushes when changing targets. Paths are searched in controller order, at most aiPathsPerTick per tick.
-Intent thinkAI(World& world, Controller& c, const Pawn& pawn, u32& pathBudget) {
+// AI (module ai): senses (sight cone with a line-of-sight ray, hearing pushes), utility scores for Wander / Chase / Flee, a brain that
+// switches state without flapping, and a path along the nav grid. Controllers run in order; paths are searched at most
+// aiPathsPerTick per tick. Wander picks a new nearby point every aiThink and sometimes jumps or pushes then.
+constexpr u32 kMaxCandidates = 32; // Pawns an AI can look at (more are ignored, in slot order)
+
+mealkit::i32 healthFixed(const Pawn& pawn) { // 0..1000
+    return pawn.health.max > 0 ? static_cast<mealkit::i32>(static_cast<mealkit::i64>(pawn.health.current) * ai::kOne / pawn.health.max) : ai::kOne;
+}
+
+Intent thinkAI(World& world, Controller& c, const Pawn& pawn, u32 selfId, const ai::Candidate* candidates, u32 candidateCount,
+               u32& pathBudget) {
     const Tuning& t = world.tuning;
     const u32 tick = world.state.tick;
+    mealkit::Pcg32& rng = world.state.aiRng;
     Intent i;
-    if (c.aiThink.ready(tick)) {
-        mealkit::Pcg32& rng = world.state.aiRng;
-        c.aiThink.start(tick, t.aiThink + rng.below(t.aiThink + 1));
-        const f32 angle = rng.range(-mealkit::kDetPi, mealkit::kDetPi);
-        const f32 distance = rng.range(t.aiTargetMin, t.aiTargetMax);
-        const Vec3 target = pawn.position + Vec3{mealkit::detSin(angle), 0.0f, mealkit::detCos(angle)} * distance;
-        c.aiTarget = {std::clamp(target.x, world.arenaMin.x, world.arenaMax.x), pawn.position.y - pawn.mover.halfHeight,
-                      std::clamp(target.z, world.arenaMin.z, world.arenaMax.z)};
-        c.aiRepath = true;
-        c.aiPathCount = c.aiPathNext = 0;
-        i.move.jump = rng.below(t.aiJumpOneIn) == 0;
-        i.push = rng.below(t.aiPushOneIn) == 0;
-    }
     const Vec3 feet{pawn.position.x, pawn.position.y - pawn.mover.halfHeight, pawn.position.z};
-    if (c.aiRepath && pathBudget > 0 && !world.nav.empty()) {
-        --pathBudget;
-        c.aiRepath = false;
-        u32 count = 0;
-        mealkit::sim::findPath(world.nav, world.navSearch, feet, c.aiTarget, c.aiPath.data(), kAiPathPoints, count,
-                               t.aiPathExpand);
-        c.aiPathCount = count;
-        c.aiPathNext = 0;
-    }
-    // Next waypoint (reached within half a meter), or the target itself without a path (waiting for a search, or no grid)
-    constexpr f32 kReach2 = 0.25f; // const-ok: waypoint reach distance squared
-    Vec3 goal = c.aiTarget;
-    while (c.aiPathNext < c.aiPathCount) {
-        const Vec3 w = c.aiPath[c.aiPathNext];
-        const f32 dx = w.x - feet.x, dz = w.z - feet.z;
-        if (dx * dx + dz * dz > kReach2) {
-            goal = w;
-            break;
+    if (mealkit::lengthSq(c.facing) <= 0.0f) c.facing = {0.0f, 0.0f, 1.0f};
+
+    // Senses: what it sees now, and the nearest push it hears when it sees nothing
+    constexpr f32 kHalf = mealkit::kDetPi / 360.0f; // const-ok: degrees → radians, halved
+    const ai::Eye eye{pawn.position, c.facing, t.aiSightRange, mealkit::detCos(t.aiSightAngle * kHalf)};
+    ai::see(c.aware, eye, world.physics, selfId, pawn.mover.body, candidates, candidateCount, tick, t.ai, t.pawnRadius);
+    ai::Noise noise;
+    if (ai::hear(world.state.noises, pawn.position, 1.0f, selfId, tick, t.ai, noise)) ai::notice(c.aware, noise, tick);
+    const bool known = ai::hasTarget(c.aware);
+    const f32 dist = known ? std::sqrt(mealkit::lengthSq(c.aware.lastKnown - pawn.position)) : 0.0f;
+
+    // Decision: each option is a score (0..1000) built from considerations (0..1000). Offered in enum order.
+    if (ai::thinkReady(c.brain, tick)) {
+        mealkit::i32 chase = 0, flee = 0;
+        if (known) {
+            const mealkit::i32 near = ai::response(ai::Curve::Inverse, ai::normalize(static_cast<mealkit::i32>(dist * 1000.0f), 0, // const-ok: m → mm
+                                                                                      static_cast<mealkit::i32>(t.aiChaseRange * 1000.0f))); // const-ok: m → mm
+            const mealkit::i32 healthy = healthFixed(pawn);
+            chase = ai::Score().mul(near).mul(healthy).done(2);
+            flee = ai::Score().mul(near).mul(ai::kOne - healthy).done(2);
         }
-        if (++c.aiPathNext == c.aiPathCount) { // end of a path cut short at kAiPathPoints: search again from here
-            const f32 tx = c.aiTarget.x - feet.x, tz = c.aiTarget.z - feet.z;
-            if (c.aiPathCount == kAiPathPoints && tx * tx + tz * tz > 1.0f) c.aiRepath = true;
-            goal = feet; // stand still for now
+        ai::Chooser pick(c.brain.state);
+        pick.offer(static_cast<u32>(AiState::Wander), static_cast<mealkit::i32>(t.aiWanderScore));
+        pick.offer(static_cast<u32>(AiState::Chase), chase);
+        pick.offer(static_cast<u32>(AiState::Flee), flee);
+        if (ai::think(c.brain, pick, tick, t.ai)) c.retarget = {}; // new state: choose its target right away
+    }
+
+    // Act. Chase and Flee need a target; without one the AI wanders until the decision changes.
+    AiState act = static_cast<AiState>(c.brain.state);
+    if (act != AiState::Wander && !known) act = AiState::Wander;
+    if (act == AiState::Wander) {
+        if (c.retarget.ready(tick)) {
+            c.retarget.start(tick, t.aiThink + rng.below(t.aiThink + 1));
+            const f32 angle = rng.range(-mealkit::kDetPi, mealkit::kDetPi);
+            const f32 distance = rng.range(t.aiTargetMin, t.aiTargetMax);
+            const Vec3 target = pawn.position + Vec3{mealkit::detSin(angle), 0.0f, mealkit::detCos(angle)} * distance;
+            ai::setTarget(c.route, {std::clamp(target.x, world.arenaMin.x, world.arenaMax.x), feet.y, std::clamp(target.z, world.arenaMin.z, world.arenaMax.z)});
+            i.move.jump = rng.below(t.aiJumpOneIn) == 0;
+            i.push = rng.below(t.aiPushOneIn) == 0;
+        }
+    } else if (c.retarget.ready(tick)) {
+        c.retarget.start(tick, t.ai.thinkTicks);
+        const Vec3 there{c.aware.lastKnown.x, c.aware.lastKnown.y - pawn.mover.halfHeight, c.aware.lastKnown.z};
+        if (act == AiState::Chase) {
+            ai::setTarget(c.route, there);
+        } else { // Flee: a point away from where the target was
+            Vec3 away{feet.x - there.x, 0.0f, feet.z - there.z};
+            const f32 len2 = mealkit::lengthSq(away);
+            away = len2 > 0.0f ? away / std::sqrt(len2) : c.facing * -1.0f;
+            const Vec3 goal = feet + away * t.aiFleeDistance;
+            ai::setTarget(c.route, {std::clamp(goal.x, world.arenaMin.x, world.arenaMax.x), feet.y, std::clamp(goal.z, world.arenaMin.z, world.arenaMax.z)});
         }
     }
+    if (act == AiState::Chase && c.aware.visible && dist < t.pushRadius * 0.8f) i.push = true; // const-ok: pushes when this close to it
+
+    ai::FollowParams follow;
+    follow.speed = t.aiSpeedScale;
+    follow.maxExpand = t.aiPathExpand;
+    const Vec3 wish = ai::follow(c.route, world.nav, world.navSearch, feet, pathBudget, follow);
+    i.move.wish = wish;
+    const f32 speed2 = mealkit::lengthSq(wish);
+    if (speed2 > 0.0f) c.facing = wish / std::sqrt(speed2);
     if (t.navDebug) {
-        Vec3 from = feet;
-        for (u32 k = c.aiPathNext; k < c.aiPathCount; ++k) {
-            mealkit::debug::line(from, c.aiPath[k], mealkit::debug::kGreen);
-            from = c.aiPath[k];
-        }
+        ai::drawRoute(c.route, feet);
+        ai::drawEye(eye, t.aiSightAngle * kHalf);
+        ai::drawAwareness(eye, c.aware);
     }
-    const Vec3 to{goal.x - pawn.position.x, 0.0f, goal.z - pawn.position.z};
-    const f32 len2 = mealkit::lengthSq(to);
-    if (len2 > (c.aiPathNext < c.aiPathCount ? 0.01f : 1.0f)) i.move.wish = to / std::sqrt(len2) * t.aiSpeedScale; // const-ok: stop distance² for waypoints / old 1 m² for the target
     return i;
 }
 
@@ -136,7 +166,7 @@ void knockRagdolls(World& world, const Vec3& center, u32 attacker) {
     }
 }
 
-void movePawn(World& world, Pawn& p, const Intent& intent, u8 player) {
+void movePawn(World& world, Pawn& p, const Intent& intent, u8 player, u32 selfId) {
     const Tuning& t = world.tuning;
     const BodyKind* body = bodyOf(world, player);
     // body kind (loadout) times the speed stat (daze lowers it)
@@ -147,6 +177,7 @@ void movePawn(World& world, Pawn& p, const Intent& intent, u8 player) {
     const bool dazed = tags::has(p.effects.granted, world.dazedTag); // "can act" check by tag
     if (intent.push && !dazed && cooldown::tryUse(p.push, world.state.tick, t.pushCooldown.value)) {
         pushProps(world, p.position);
+        ai::emit(world.state.noises, p.position, t.pushNoise, selfId, world.state.tick); // AI hears it
         knockRagdolls(world, p.position, player == kNoPlayer ? 0u : player + 1u);
         world.events.push(makeEvent(EventKind::Push, player, p.position, t.pushRadius));
     }
@@ -249,12 +280,19 @@ void controlPawns(World& world) {
     const bool playing = matchPlaying(world); // during countdown and after the end, stand and wait (AI decisions stop too)
     u32 pathBudget = world.tuning.aiPathsPerTick; // per-tick search limit, used up in controller order
     drawNav(world);
+    ai::Candidate candidates[kMaxCandidates]; // living Pawns in slot order: what an AI can look at
+    u32 candidateCount = 0;
+    for (auto [pawnId, other] : s.pawns) {
+        if (candidateCount == kMaxCandidates) break;
+        if (!other.health.dead) candidates[candidateCount++] = {pawnId.slot + 1, other.position, other.mover.body};
+    }
     for (auto [id, c] : s.controllers) { // controller order = player slot order, then AI
         Pawn* p = s.pawns.get(c.pawn);
         if (!p) continue;
         if (c.kind == ControllerKind::Player)
-            movePawn(world, *p, playing ? intentFromInput(world.inputs[c.slot]) : Intent{}, static_cast<u8>(c.slot));
-        else if (c.kind == ControllerKind::AI) movePawn(world, *p, playing ? thinkAI(world, c, *p, pathBudget) : Intent{}, kNoPlayer);
+            movePawn(world, *p, playing ? intentFromInput(world.inputs[c.slot]) : Intent{}, static_cast<u8>(c.slot), c.pawn.slot + 1);
+        else if (c.kind == ControllerKind::AI) movePawn(world, *p,
+                     playing ? thinkAI(world, c, *p, c.pawn.slot + 1, candidates, candidateCount, pathBudget) : Intent{}, kNoPlayer, c.pawn.slot + 1);
     }
 }
 

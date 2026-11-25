@@ -12,6 +12,9 @@
 #include "mealkit/sim/Pool.h"
 #include "mealkit/sim/TickEvents.h"
 #include "mealkit/sim/TickTimer.h"
+#include "ai/sim/Perception.h" // source module modules/ai (G3): brain, awareness, route, noises
+#include "ai/sim/Route.h"
+#include "ai/sim/Utility.h"
 #include "cooldown/sim/Cooldown.h" // source module modules/cooldown (docs/MODULES.md)
 #include "effects/sim/Effects.h"   // combat modules (G2): tags, stats, effects, health
 #include "health/sim/Health.h"
@@ -62,11 +65,11 @@ using mealkit::sim::Id;
 using mealkit::sim::TickTimer;
 struct Controller;
 inline constexpr u32 kStatSpeed = 0; // stats index: movement speed scale (1000 = 1.0)
-inline constexpr u32 kAiPathPoints = 16; // waypoints kept per AI (a longer path is re-searched from its end)
 struct Pawn;
 
 enum class PawnKind : u8 { Runner }; // the movement mode comes from the body kind (tables/bodies.table movement)
 enum class ControllerKind : u8 { None, Player, AI };
+enum class AiState : u32 { Wander, Chase, Flee }; // ai::Brain::state of an AI controller (decided in sim/Pawns.cpp thinkAI)
 
 MEALKIT_STRUCT(Pawn) {
     MEALKIT_FIELD(PawnKind, kind, PawnKind::Runner, "종류");
@@ -86,12 +89,11 @@ MEALKIT_STRUCT(Controller) {
     MEALKIT_FIELD(u32, spawnIndex, 0, "스폰 번호");
     MEALKIT_FIELD(Id<Pawn>, pawn, {}, "빙의한 Pawn"); // if none, waiting to respawn (spectating)
     MEALKIT_FIELD(TickTimer, respawn, {}, "리스폰");
-    MEALKIT_FIELD(Vec3, aiTarget, {}, "AI 목표 지점");
-    MEALKIT_FIELD(TickTimer, aiThink, {}, "AI 다음 판단");
-    MEALKIT_FIELD(bool, aiRepath, false, "AI 길찾기 대기"); // set when the target changes, searched within the per-tick limit
-    MEALKIT_ARRAY(Vec3, kAiPathPoints, aiPath, "AI 경로 지점");
-    MEALKIT_FIELD(u32, aiPathCount, 0, "AI 경로 지점 수");
-    MEALKIT_FIELD(u32, aiPathNext, 0, "AI 다음 경로 지점");
+    MEALKIT_FIELD(ai::Brain, brain, {}, "AI 두뇌 (상태: 0 배회, 1 추격, 2 도망)");
+    MEALKIT_FIELD(ai::Awareness, aware, {}, "AI가 아는 것 (목표, 마지막 위치)");
+    MEALKIT_FIELD(ai::Route, route, {}, "AI 경로");
+    MEALKIT_FIELD(TickTimer, retarget, {}, "AI 다음 목표 정하기");
+    MEALKIT_FIELD(Vec3, facing, {}, "AI가 바라보는 방향 (시야 방향)");
 };
 
 MEALKIT_STRUCT(PlayerSlot) {
@@ -157,6 +159,7 @@ MEALKIT_STRUCT(WorldState) {
     MEALKIT_FIELD(mealkit::sim::Pool<Controller>, controllers, {}, "컨트롤러");
     MEALKIT_FIELD(mealkit::sim::Pool<Pawn>, pawns, {}, "Pawn");
     MEALKIT_FIELD(mealkit::Pcg32, aiRng, {}, "AI 난수");
+    MEALKIT_FIELD(ai::NoiseList, noises, {}, "최근 소리 (AI가 들음)");
     MEALKIT_FIELD(mealkit::sim::Pool<Prop>, props, {}, "상자");
     MEALKIT_FIELD(mealkit::sim::Pool<Pad>, pads, {}, "점프대");
 };
