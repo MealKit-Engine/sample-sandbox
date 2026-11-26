@@ -1,5 +1,16 @@
 # MealKit UI (hand-written): sandbox HUD. View model: HudVm (samples/sandbox/view/Hud.h). Text: assets/strings.
 @format ui 1
+# The two corner buttons share their look (MkUI styles: shared ones can also go in theme.ui)
+style hudButton
+  layout row
+  justify center
+  align center
+  fill $button
+  stroke 1 $panelStroke
+  radius $radius
+  on hover fill $buttonHover
+  on pressed fill $buttonPressed
+end
 board hud 1920 1080
   frame scoreboard
     pos 32 32
@@ -112,15 +123,8 @@ board hud 1920 1080
     pos 1628 32
     size 260 64
     constraints right top
-    layout row
-    justify center
-    align center
-    fill $button
-    stroke 1 $panelStroke
-    radius $radius
+    style hudButton
     button debug.shockwave
-    on hover fill $buttonHover
-    on pressed fill $buttonPressed
     text label
       key hud.shockwave
       fontSize 24
@@ -131,15 +135,8 @@ board hud 1920 1080
     pos 1628 108
     size 260 56
     constraints right top
-    layout row
-    justify center
-    align center
-    fill $button
-    stroke 1 $panelStroke
-    radius $radius
+    style hudButton
     button settings.open
-    on hover fill $buttonHover
-    on pressed fill $buttonPressed
     text label
       key hud.settings
       fontSize 22
