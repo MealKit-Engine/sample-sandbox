@@ -1,5 +1,5 @@
 # MealKit module files (sha256  path). tools\module.ps1 update replaces a file only while its hash matches.
-source folder /mnt/drive/MealKit/Personal/module-tags
+source folder /mnt/drive/02_Work/02_MealKit/02_Account/module-tags
 2535240ae1829313b6bd65711600177b443681930bf210781a97e42dd86fc711  docs/index.md
 f6f4c6eac2951520252a60a045ac4a2b0f6b6c65b345021dd2870212027187eb  LICENSE
 f6088fafa787749d397e22cb7203f517cfd0c5d51a190ad2eab6b6d84ebe92d9  module.txt

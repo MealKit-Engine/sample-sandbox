@@ -1,5 +1,5 @@
 # MealKit module files (sha256  path). tools\module.ps1 update replaces a file only while its hash matches.
-source folder D:\Personal\module-camrig
+source folder /mnt/drive/02_Work/02_MealKit/02_Account/module-camrig
 4915c9a28cd917813f8e772a9a1e731bc14084714bef4e1b9ce75488255a6814  docs/index.md
 f6f4c6eac2951520252a60a045ac4a2b0f6b6c65b345021dd2870212027187eb  LICENSE
 5c7cffc4a148b504e24e0bebd6070a5a836923c47c4ca90ee30bbd31b248a5f5  module.txt

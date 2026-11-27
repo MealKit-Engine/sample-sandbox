@@ -1,5 +1,5 @@
 # MealKit module files (sha256  path). tools\module.ps1 update replaces a file only while its hash matches.
-source folder D:\Personal\module-screens
+source folder /mnt/drive/02_Work/02_MealKit/02_Account/module-screens
 faf658d381087d36438248974b38d8b1e1d85cd47d0cd368608b56eeb636eb9c  app/Flow.cpp
 c2484f35003874b0de8396deead1e97e966cb399423f4a8043fbe1f3fa773062  app/Flow.h
 5f4a21b55284a5665f2f1a307513c6b6bf68fe6ca0860754654809d93771245d  app/Screens.h
